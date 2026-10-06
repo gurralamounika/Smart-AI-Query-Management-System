@@ -4,7 +4,7 @@ from datetime import datetime
 
 # ---------------- DATABASE ----------------
 
-conn = sqlite3.connect("queries.db")
+conn = sqlite3.connect("queries.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -14,17 +14,6 @@ CREATE TABLE IF NOT EXISTS queries (
     answer TEXT,
     status TEXT,
     time TEXT
-)
-""")
-
-conn.commit()
-# ---------------- USERS DATABASE ----------------
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT
 )
 """)
 
@@ -46,6 +35,9 @@ def get_answer(question):
     elif "database" in q:
         return "A database is used to store, organize and manage application data."
 
+    elif "streamlit" in q:
+        return "Streamlit is a Python framework used to quickly build interactive web applications and dashboards."
+
     elif "password" in q:
         return "You can reset your password using the Forgot Password option."
 
@@ -53,34 +45,114 @@ def get_answer(question):
         return "I received your query: " + question
 
 
-# ---------------- UI ----------------
+# ---------------- PAGE SETTINGS ----------------
 
 st.set_page_config(
     page_title="Smart AI Query Management System",
-    page_icon="🤖"
+    page_icon="🤖",
+    layout="wide"
 )
 
-st.title("🤖 Smart AI Query Management System")
 
-st.write("Ask your question and get an AI-style response.")
+# ---------------- STYLE ----------------
 
+st.markdown("""
+<style>
+
+.main {
+    background: linear-gradient(135deg, #f8fbff, #eef4ff);
+}
+
+.block-container {
+    max-width: 1050px;
+    padding-top: 2rem;
+}
+
+h1 {
+    font-size: 46px !important;
+    font-weight: 800 !important;
+    text-align: center;
+}
+
+.hero-text {
+    text-align: center;
+    font-size: 20px;
+    color: #555;
+    margin-bottom: 25px;
+}
+
+.section-title {
+    font-size: 30px;
+    font-weight: 700;
+    margin-top: 25px;
+}
+
+.stTextInput input {
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 17px;
+}
+
+.stButton button {
+    border-radius: 12px;
+    padding: 10px 25px;
+    font-weight: 600;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
+    margin-bottom: 15px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------- HEADER ----------------
+
+st.markdown(
+    """
+    <div style="text-align:center;">
+        <h1>🤖 Smart AI Query Management System</h1>
+        <p>Your intelligent assistant for faster answers and smarter queries.</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ---------------- AI IMAGE ----------------
+
+st.image(
+    "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1400&q=80",
+    use_container_width=True
+)
+
+
+# ---------------- QUERY SECTION ----------------
+st.markdown(
+    '<div class="section-title">💬 Ask Your Question</div>',
+    unsafe_allow_html=True
+)
 question = st.text_input(
     "Enter your query",
     placeholder="Example: What is Python?"
 )
 
-if st.button("Submit Query"):
+
+if st.button("🚀 Submit Query"):
 
     if question.strip() == "":
-        st.warning("Please enter a query.")
+        st.warning("Please enter a question first.")
 
     else:
 
         answer = get_answer(question)
 
-        current_time = datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         cursor.execute(
             """
@@ -91,94 +163,90 @@ if st.button("Submit Query"):
             (
                 question,
                 answer,
-                "Open",
+                "Completed",
                 current_time
             )
         )
 
         conn.commit()
 
-        st.success("Query submitted successfully!")
+        st.success("Query processed successfully!")
 
-        st.subheader("🤖 AI Response")
-        st.info(answer)
+        st.markdown(
+            f"""
+            <div class="card">
+                <h3>🤖 AI Response</h3>
+                <p>{answer}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+# ---------------- QUICK QUESTIONS ----------------
+
+st.markdown(
+    '<div class="section-title">✨ Quick Questions</div>',
+    unsafe_allow_html=True
+)
+
+st.caption("Try one of these popular queries to get started:")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.info("🐍 Python\n\nLearn about Python programming.")
+
+with col2:
+    st.info("🤖 Artificial Intelligence\n\nExplore AI concepts.")
+
+with col3:
+    st.info("🗄️ Database\n\nUnderstand database basics.")
 
 
 # ---------------- QUERY HISTORY ----------------
 
-st.divider()
-
-st.header("📋 Query History")
-
-cursor.execute(
-    "SELECT * FROM queries ORDER BY id DESC"
+st.markdown(
+    '<div class="section-title">📋 Query History</div>',
+    unsafe_allow_html=True
 )
 
-all_queries = cursor.fetchall()
+cursor.execute(
+    """
+    SELECT id, question, answer, status, time
+    FROM queries
+    ORDER BY id DESC
+    """
+)
 
-if len(all_queries) == 0:
+rows = cursor.fetchall()
 
-    st.write("No queries yet.")
+if rows:
+
+    for row in rows:
+
+        query_id, q, a, status, time = row
+
+        with st.expander(f"Query #{query_id} — {q}"):
+
+            st.write("**Question:**")
+            st.write(q)
+
+            st.write("**AI Response:**")
+            st.write(a)
+
+            st.write("**Status:**", status)
+            st.write("**Time:**", time)
 
 else:
 
-    for item in all_queries:
-
-        st.subheader("Query #" + str(item[0]))
-
-        st.write("**Question:**", item[1])
-        st.write("**Answer:**", item[2])
-        st.write("**Status:**", item[3])
-        st.caption(item[4])
-
-        st.divider()
+    st.info("No queries submitted yet.")
 
 
-        # ---------------- ADMIN DASHBOARD ----------------
+# ---------------- FOOTER ----------------
 
-st.divider()
-st.header("👨‍💼 Admin Dashboard")
+st.markdown("---")
 
-cursor.execute("SELECT * FROM queries ORDER BY id DESC")
-admin_queries = cursor.fetchall()
-
-if len(admin_queries) == 0:
-    st.info("No queries available.")
-else:
-    query_options = {}
-
-    for item in admin_queries:
-        query_options[item[0]] = f"Query #{item[0]} - {item[1][:50]}"
-
-    selected_id = st.selectbox(
-        "Select a Query",
-        options=list(query_options.keys()),
-        format_func=lambda x: query_options[x]
-    )
-
-    selected_query = next(
-        item for item in admin_queries if item[0] == selected_id
-    )
-
-    st.write("### Selected Query")
-    st.write(selected_query[1])
-
-    st.write("### Current Answer")
-    st.info(selected_query[2])
-
-    new_status = st.selectbox(
-        "Update Status",
-        ["Open", "In Progress", "Resolved"],
-        index=["Open", "In Progress", "Resolved"].index(selected_query[3])
-    )
-
-    if st.button("Update Query Status"):
-        cursor.execute(
-            "UPDATE queries SET status = ? WHERE id = ?",
-            (new_status, selected_id)
-        )
-
-        conn.commit()
-
-        st.success("Query status updated successfully!")
-        
+st.caption(
+    "Smart AI Query Management System • Built with Python, Streamlit and SQLite"
+)
